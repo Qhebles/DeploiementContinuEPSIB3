@@ -1,0 +1,55 @@
+- name: installation du jdk8
+  package: name=openjdk-8-jdk-headless state=present
+
+- name: installation jsvc
+  package: name=jsvc
+
+- name: creation groupe "tomee"
+  group: name=tomee
+
+- name: creation utilisateur "tomee"
+  user: name=tomee group=tomee home=/home/tomee createhome=yes system=yes
+  become: True
+  become_method: sudo
+
+- name: telechargement tomee
+  get_url: url=http://repo.maven.apache.org/maven2/org/apache/tomee/apache-tomee/7.0.3/apache-tomee-7.0.3-plus.tar.gz dest=/opt/apache-tomee-7.0.3-plus.tar.gz
+  
+- name: extraction tomee
+  command: chdir=/opt /bin/tar xvf /opt/apache-tomee-7.0.3-plus.tar.gz -C /opt creates=/opt/tomee
+  
+- name: changer proprietaire du dossier /opt/tomee
+  shell: chgrp -R tomee /opt/tomee
+  
+- name: change droits /opt/tomee/conf
+  shell: chmod -R g+r /opt/tomee/conf/
+
+- name: change droits execution /opt/tomee/conf
+  shell: chmod g+x /opt/tomee/conf/
+
+- name: change droits proprietaire dossiers webapps, work, temp, logs
+  shell: chown -R tomee /opt/tomee/webapps/ /opt/tomee/work/ /opt/tomee/temp/ /opt/tomee/logs/
+  
+- name: creation, edition tomee.service
+  shell: echo "[Unit] \nDescription=Apache Tomee Web Application Container \nAfter=network.target \n\n[Service] \nType=forking \n\nEnvironment=JAVA_HOME=/usr/lib/jvm/java-1.8.0-openjdk-amd64/jre \nEnvironment=CATALINA_HOME=/opt/tomee \nEnvironment=CATALINA_BASE=/opt/tomee \nEnvironment='CATALINA_OPTS=-Xms512M -Xmx1024M -server -XX:+UseParallelGC' \nEnvironment='JAVA_OPTS=-Djava.awt.headless=true -Djava.security.egd=file:/dev/./urandom' \n\nExecStart=/opt/tomee/bin/startup.sh \nExecStop=/opt/tomcat/bin/shutdown.sh \n\nUser=tomee \nGroup=tomee \nUMask=0007 \nRestartSec=10 \nRestart=always \n\n[Install] \nWantedBy=multi-user.target >> /etc/systemd/system/tomee.service" >> /etc/systemd/system/tomee.service
+  
+- name: editer fichier setenv.sh
+  shell: echo "JAVA_HOME=/usr/lib/jvm/java-1.8.0-openjdk-amd64 \nJSVC=/usr/bin/jsvc \nTOMCAT_USER=tomee" >> /opt/tomee/bin/setenv.sh
+
+- name: change droits fichier setenv.sh
+  shell: chmod +x /opt/tomee/bin/setenv.sh
+  
+- name: download start tomee
+  get_url: url=http://tutoriels.meddeb.net/wp-content/uploads/2014/11/tomee.txt dest=/etc/init.d/
+
+- name: change droit tomee initd
+  shell: sudo chmod +x /etc/init.d/tomee.txt
+
+- name: relance systemctl
+  shell: systemctl daemon-reload
+  
+- name: start tomee
+  shell: service tomee.txt start 
+
+- name: status tomee
+  shell: service tomee.txt status
